@@ -1,0 +1,4 @@
+venv
+/scrafiles/*
+__pycache__
+.vscode

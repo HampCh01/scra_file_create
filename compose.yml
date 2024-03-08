@@ -1,0 +1,8 @@
+services:
+  input_create:
+    build: .
+    volumes:
+      - scrafiles:/app/scrafiles
+volumes:
+  scrafiles:
+    external: true

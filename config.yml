@@ -1,0 +1,7 @@
+output: scrafiles
+db:
+  container:
+    host: host.docker.internal
+  hardware:
+    host: localhost
+iterations: 20
