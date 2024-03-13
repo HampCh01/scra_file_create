@@ -1,7 +1,8 @@
 output: scrafiles
+pgp: pubkey
 db:
   container:
     host: host.docker.internal
   hardware:
     host: localhost
-iterations: 20
+iterations: 1

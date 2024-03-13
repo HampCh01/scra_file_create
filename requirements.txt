@@ -2,3 +2,4 @@ requests
 pyyaml
 python-dateutil
 pymongo
+python-gnupg

@@ -3,6 +3,12 @@ services:
     build: .
     volumes:
       - scrafiles:/app/scrafiles
+
+  # mongo:
+  #   image: mongodb/mongodb-community-server:latest
+  #   ports:
+  #     - 27017:27017
+
 volumes:
   scrafiles:
-    external: true
+    external: false
