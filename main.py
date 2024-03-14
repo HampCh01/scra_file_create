@@ -14,30 +14,33 @@ from pathlib import Path
 def argparse():
     args = list(sys.argv[1:])
     iterations = yaml.safe_load(open("config.yml"))["iterations"]
+    gpg = gnupg.GPG()
+    try:
+        with open(list(Path(yaml.safe_load(open("config.yml"))["pgp"]).glob('*.asc'))[0], "rb") as f:
+            result = gpg.import_keys(f.read())
+            gpg.trust_keys(result.fingerprints, "TRUST_ULTIMATE")
+    except Exception as e:
+        raise Exception("Failed to import PGP key")
+
     if len(args) > 0:
         try:
             if len(args) > 1:
                 for i in range(iterations):
-                    main(i, int(args[0]), int(args[1]))
+                    main(i, gpg, int(args[0]), int(args[1]))
             else:
                 for i in range(iterations):
-                    main(i, max=int(args[0]))
+                    main(i, gpg, max=int(args[0]))
         except Exception as e:
             print("Invalid arguments, running with default values.\n")
             for i in range(iterations):
-                main(i)
+                main(i, gpg)
     else:
         for i in range(iterations):
-            main(i)
+            main(i, gpg)
 
 
-def main(iteration:int, min: int = 50_000, max: int = 200_000):
+def main(iteration:int, gpg:gnupg.GPG, min: int = 50_000, max: int = 200_000):
     results = random.randint(min, max)
-    gpg = gnupg.GPG()
-    with open(list(Path(yaml.safe_load(open("config.yml"))["pgp"]).glob('*.asc'))[0], "rb") as f:
-        result = gpg.import_keys(f.read())
-        print(result.results)
-        gpg.trust_keys(result.fingerprints, "TRUST_ULTIMATE")
 
     url = f"http://{'host.docker.internal' if is_docker() else 'localhost'}:3000/api/?inc=name,id,dob&results={results}&nat=us"
     response = requests.get(url)
@@ -46,7 +49,7 @@ def main(iteration:int, min: int = 50_000, max: int = 200_000):
     try:
         c.insert_many(data["results"])
         zip = write_files(
-            data["results"], f'LN{iteration + 1:08}_{datetime.now():%Y%m%d}_{get_type()}.txt'
+            data["results"], f'LNTEST{iteration + 1:08}_{datetime.now():%Y%m%d}_{get_type()}.txt'
         )
         pgp_file(zip, gpg)
     except Exception as e:
@@ -63,7 +66,10 @@ def pgp_file(file: Path, gpg: gnupg.GPG) -> Path:
             output=target.resolve(),
             passphrase="dolanops",
         )
-        print(success.ok)
+    if success.ok:
+        file.unlink()
+    else:
+        raise Exception("Failed to encrypt file")
     return target
 
 def is_docker():
@@ -101,12 +107,14 @@ def zip_create(file: Path, lidfile: Path) -> Path:
     with zipfile.ZipFile(target, "w") as z:
         z.write(file, arcname=file.name)
         z.write(lidfile, arcname=lidfile.name)
+    file.unlink()
+    lidfile.unlink()
     return target
 
 def format_record(record, ix) -> str:
-    name = {k:v.strip() for k, v in record["name"].items()}
-    id = record["id"]# {k:v.strip() for k, v  in record["id"].items()}
-    dob = record["dob"]# {k:v.strip() for k, v in record["dob"].items()}
+    name = {k:v.strip() for k, v in record["name"].items()} # api sending newlines in name
+    id = record["id"] # no strip needed for these as we are formatting them later
+    dob = record["dob"]
     return f'{format_ssn(id["value"])}{parser.parse(dob["date"]).strftime("%Y%m%d")}{name["last"]:<26}{name["first"]:<20}{ix:<28}{datetime.now():%Y%m%d}{" "*20}'
 
 
